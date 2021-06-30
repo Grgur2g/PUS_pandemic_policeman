@@ -1,0 +1,30 @@
+<html>
+	<head ><link rel="stylesheet" href="style.css"></head>
+  <body onLoad="load()">
+	 <!-- Tab links -->
+	 <div class="pozadina"></div>
+	 <div class="bg-text">
+	 	<h1 style="font-size: 36px"> Pandemijski policajac</h1>
+
+
+<div class="tab">
+  <button class="tablinks" onclick="openCam(event, 'LiveCam')" id="defaultOpen">Live Cam</button>
+  <button class="tablinks" onclick="openCam(event, 'Criminals')">Criminals</button>
+</div>
+
+<!-- Tab content -->
+<div id="LiveCam" class="tabcontent">
+  <h3>LiveCam</h3>
+	<img src="http://10.1.2.2:8080/bgr" class="live_cam_settings">
+</div>
+
+<div id="Criminals" class="tabcontent">
+	<h3>Criminals</h3>
+    <button onclick="loadLess()" id="load_less" class="button-next" id="defaultOpen"><</button>
+    <button onclick="loadMore()" id="load_more" class="button-next">></button>
+   	<div id="slikice"></div>
+</div>
+</div>
+<script src="script.js"></script>
+  </body>
+</html>
