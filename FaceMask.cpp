@@ -24,8 +24,7 @@ int model_width;
 int model_height;
 int model_channels;
 
-int img_counter = 0;
-//int no_mask_counter = 0;
+int img_counter = 1;
 
 std::unique_ptr<tflite::Interpreter> interpreter;
 
@@ -37,7 +36,6 @@ struct PrevDetection {
 
 PrevDetection prev_frame_detections[MAX_DETECTIONS] = {0};
 
-//-----------------------------------------------------------------------------------------------------------------------
 void GetImageTFLite(float* out, Mat &src)
 {
     int i,Len;
@@ -57,7 +55,7 @@ void GetImageTFLite(float* out, Mat &src)
         out[i] = (f - 127.5f) / 127.5f;
     }
 }
-//-----------------------------------------------------------------------------------------------------------------------
+
 
 float distance(float x1, float y1, float x2, float y2) {
     float x_dist = x2 - x1;
@@ -68,17 +66,17 @@ float distance(float x1, float y1, float x2, float y2) {
 void detect_from_video(Mat &src)
 {
     Mat image;
-    int cam_width =src.cols;
-    int cam_height=src.rows;
+    int cam_width = src.cols;
+    int cam_height = src.rows;
 
     // copy image to input as input tensor
     GetImageTFLite(interpreter->typed_tensor<float>(interpreter->inputs()[0]), src);
 
     interpreter->AllocateTensors();
     interpreter->SetAllowFp16PrecisionForFp32(true);
-    interpreter->SetNumThreads(4);      //quad core
+    interpreter->SetNumThreads(4); //quad core
 
-    interpreter->Invoke();      // run your model
+    interpreter->Invoke(); // run your model
 
     const float* detection_locations = interpreter->tensor(interpreter->outputs()[0])->data.f;
     const float* detection_classes=interpreter->tensor(interpreter->outputs()[1])->data.f;
@@ -91,7 +89,6 @@ void detect_from_video(Mat &src)
     for (int i = 0; i < num_detections; i++) {
         if (detection_scores[i] > confidence_threshold) {
             int  det_index = (int)detection_classes[i];
-            //std::cout << i << "\n";
             float y1 = detection_locations[4*i  ]*cam_height;
             float x1 = detection_locations[4*i+1]*cam_width;
             float y2 = detection_locations[4*i+2]*cam_height;
@@ -104,23 +101,13 @@ void detect_from_video(Mat &src)
                 prev_frame_detections[i].no_mask = false;
             }
             if (det_index == 1) {
-                //cv::drawMarker(src, cv::Point(x1 + (x2 - x1)/2, y1 + (y2 - y1)/2),  cv::Scalar(0, 0, 255), MARKER_CROSS, x2-x1+6, 2);
-                //cv::circle(src, cv::Point(x1 + (x2 - x1)/2, y1 + (y2 - y1)/2),(x2-x1)/2 + 3, cv::Scalar(0, 0, 255), 2);
                 rectangle(src,rec, Scalar(0, 0, 255), 2, 8, 0);
                 putText(src,"no mask", Point(x1, y1-5) ,FONT_HERSHEY_SIMPLEX,0.7, Scalar(0, 0, 255), 1, 8, 0);
 
-                // save every 5th image of person with no mask
-                /*if (!no_mask_counter) {
-                    img_counter = (img_counter + 1) % MAX_IMGS;
-                    imwrite("./web/slike/" + to_string(img_counter) + ".jpg", src);
-                    std::cout << "saved no mask img\n";
-                }
-                no_mask_counter++;
-                no_mask_counter %= 5;*/
                 float old_x1 = prev_frame_detections[i].x1;
                 float old_y1 = prev_frame_detections[i].y1;
                 if (!prev_frame_detections[i].no_mask || distance(x1, y1, old_x1, old_y1) > DIST_THRESH) {
-                    img_counter = (img_counter + 1) % MAX_IMGS;
+                    img_counter = (img_counter == MAX_IMGS) ? 1 : img_counter + 1;
                     imwrite("./web/slike/" + to_string(img_counter) + ".jpg", src);
                     std::cout << "New person with no mask - saved image: ./web/slike/" + std::to_string(img_counter) +".jpg\n";
                 }
@@ -156,8 +143,8 @@ int main(int argc,char **argv)
     for (i = 0; i < 16; i++) FPS[i] = 0.0;
 
     // Load model
-    std::unique_ptr<tflite::FlatBufferModel> model = tflite::FlatBufferModel::BuildFromFile("ssd_mobilenet_v2_fpnlite.tflite");
-//  std::unique_ptr<tflite::FlatBufferModel> model = tflite::FlatBufferModel::BuildFromFile("ssdlite_mobilenet_v2.tflite");
+    std::unique_ptr<tflite::FlatBufferModel> model = tflite::FlatBufferModel::BuildFromFile("ssd_mobilenet_v2_fpnlite.tflite"); // more accurate
+//  std::unique_ptr<tflite::FlatBufferModel> model = tflite::FlatBufferModel::BuildFromFile("ssdlite_mobilenet_v2.tflite"); // faster
 
     // Build the interpreter
     tflite::ops::builtin::BuiltinOpResolver resolver;
@@ -181,28 +168,33 @@ int main(int argc,char **argv)
     cout << "input(0) name: " << interpreter->GetInputName(0) << "\n";
     cout << "outputs: " << interpreter->outputs().size() << "\n";
 
-    std::vector<int> params = {cv::IMWRITE_JPEG_QUALITY, 90}; // bilo 90
-    MJPEGStreamer streamer;
-    // By default "/shutdown" is the target to graceful shutdown the streamer
-    // if you want to change the target to graceful shutdown:
-    //      streamer.setShutdownTarget("/stop");
+    std::vector<int> params = {cv::IMWRITE_JPEG_QUALITY, 90};
+    MJPEGStreamer streamer;// By default "/shutdown" is the target to graceful shutdown the streamer
 
     // By default 1 worker is used for streaming
     // if you want to use 4 workers:
-    //      streamer.start(8080, 4);
+    // streamer.start(8080, 4);
     streamer.start(8080);
-
-    //VideoCapture cap("Face_Mask_Video.mp4");//Norton_M3.mp4");
-    VideoCapture cap(0);
-    if (!cap.isOpened()) {
-        cerr << "ERROR: Unable to open the camera" << endl;
-        return 0;
+    VideoCapture cap;
+    if (argc == 1) { // use camera
+        cap = VideoCapture(0);
+        if (!cap.isOpened()) {
+            cerr << "ERROR: Unable to open the camera" << endl;
+            return 1;
+        }
+    } else if (argc == 2) { // use video supplied as argument
+        cap = VideoCapture(argv[1]);
+        if (!cap.isOpened()) {
+            cerr << "ERROR: Unable to open supplied video.\n";
+            return 1;
+        }
+    } else {
+        cerr << "ERROR: wrong number of arguments. Number of arguments should be 0 (to use the camera) or 1 (title of video to use).\n";
+        return 1;
     }
-
     cout << "Start grabbing, press ESC on Live window to terminate" << endl;
 
     while (streamer.isAlive()) {
-//        frame=imread("Kapje_2.jpg");  //need to refresh frame before dnn class detection
         cap >> frame;
         if (frame.empty()) {
             cerr << "End of movie" << endl;
@@ -224,27 +216,20 @@ int main(int argc,char **argv)
         }
         putText(frame, format("FPS %0.2f",f/16),Point(10,20),FONT_HERSHEY_SIMPLEX,0.6, Scalar(0, 0, 255));
 
-
-        //std::cout << "rows: " << frame.rows << " cols: " << frame.cols << "\n";
-        //cv::imshow("frame", frame);
-        //cv::waitKey(140);
-
         // http://localhost:8080/bgr
         std::vector<uchar> buff_bgr;
         cv::imencode(".jpg", frame, buff_bgr, params);
-        streamer.publish("/bgr", std::string(buff_bgr.begin(), buff_bgr.end()));
+        streamer.publish("/stream", std::string(buff_bgr.begin(), buff_bgr.end()));
 
-        //show output
+        //show output (GUI)
         //imshow("RPi 4 - 2.0 GHz - 2 Mb RAM", frame);
-        //img_counter = (img_counter + 1) % MAX_IMGS;
-        //imwrite("./web2/slike/" + to_string(img_counter) + ".jpg", frame);
         //char esc = waitKey(5);
         //if(esc == 27) break;
     }
 
     cout << "Closing the camera" << endl;
 
-    // When everything done, release the video capture and write object
+    // When everything is done, release the video capture and write object
     cap.release();
     streamer.stop();
     destroyAllWindows();
