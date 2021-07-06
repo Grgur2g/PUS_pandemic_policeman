@@ -10,6 +10,7 @@
 #include "tensorflow/lite/string_util.h"
 #include "tensorflow/lite/model.h"
 #include <cmath>
+#include <ctime>
 
 #include "mjpeg_streamer.hpp"
 
@@ -108,8 +109,16 @@ void detect_from_video(Mat &src)
                 float old_y1 = prev_frame_detections[i].y1;
                 if (!prev_frame_detections[i].no_mask || distance(x1, y1, old_x1, old_y1) > DIST_THRESH) {
                     img_counter = (img_counter == MAX_IMGS) ? 1 : img_counter + 1;
+
+                    time_t now = time(0);
+                    std::string date_time = std::ctime(&now);
+                    //cout << "The local date and time is: " << date_time << endl;
+                    putText(src, date_time.substr(0,date_time.size()-1), Point(20, src.rows - 20),
+                            FONT_HERSHEY_SIMPLEX, 0.7, Scalar(0, 0, 255), 2, 8, 0);
+
                     imwrite("./web/slike/" + to_string(img_counter) + ".jpg", src);
-                    std::cout << "New person with no mask - saved image: ./web/slike/" + std::to_string(img_counter) +".jpg\n";
+                    //imwrite("/var/www/html/slike/" + to_string(img_counter) + ".jpg", src); // for apache
+                    std::cout << "New person with no mask - saved image: " + std::to_string(img_counter) +".jpg\n";
                 }
                 prev_frame_detections[i].x1 = x1;
                 prev_frame_detections[i].y1 = y1;
