@@ -20,7 +20,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST'){
 
     if($username == "admin" && $password == md5("admin")){ //Uspjesan login
       $_SESSION['username'] = $username;
-      header("location: Index.php");
+      header("location: index.php");
     }
     else{
       if($username != "admin"){  //Pogreska u username
