@@ -1,6 +1,19 @@
 var step = 4
 var page = 0
 
+var pictures;
+function loadImages() {
+      $.ajax({
+        url:"GetImagesFromFolder.php", //the page containing php script
+        type: "POST", //request type
+        success:function(result){
+         pictures = JSON.parse(result);
+         load();
+       }
+     });
+ }
+
+
 function openCam(evt, section) {
   // Declare all variables
   var i, tabcontent, tablinks;
@@ -49,23 +62,24 @@ function loadLess(){
 
 
 function load(){
-  document.getElementById("page").innerHTML = page + 1;
-  //Reload slikice div
-  document.getElementById("slikice").innerHTML = "";
-  for (var i = 0; i < step; i++){
-      if(page*step+i >= pictures.length){
-        break;
-      }
+  if(pictures.length > 0){
+    document.getElementById("page").innerHTML = page + 1;
+    //Reload slikice div
+    document.getElementById("slikice").innerHTML = "";
+    for (var i = 0; i < step; i++){
+        if(page*step+i >= pictures.length){
+          break;
+        }
       var elem = document.createElement("img");
-      elem.setAttribute("src", "slike/" + pictures[page*step+i]);
+      elem.setAttribute("src", "slike/" + pictures[page*step+i] + "?x=" + Date.now());
       elem.setAttribute("height", "240");
       elem.setAttribute("width", "320");
       elem.setAttribute("id", pictures[page*step+i]);
       elem.setAttribute("alt", "Kriminalac");
       elem.setAttribute("style", "margin:10px; border: solid black");
       document.getElementById("slikice").appendChild(elem);
-      }
-
     }
+  }
+}
 
 document.getElementById("defaultOpen").click();
